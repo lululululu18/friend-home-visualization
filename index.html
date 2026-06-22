@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>何处是我朋友的家 | 像素圆点可视化</title>
+    <!-- 修复1：替换为国内阿里云CDN，永久稳定可访问 -->
+    <script src="https://registry.npmmirror.com/d3/7.8.5/files/dist/d3.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            background-color: #f5f0e6; /* 暖米色背景，贴合电影色调 */
+            color: #4a3728; /* 深棕色文字 */
+            line-height: 1.6;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #d4c7b8;
+        }
+
+        .title {
+            font-size: 2.8rem;
+            font-weight: normal;
+            color: #8b5a2b; /* 土黄色标题 */
+            margin-bottom: 0.5rem;
+            letter-spacing: 2px;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: #6b5344;
+            font-style: italic;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .control-panel {
+            background-color: #f0e9dc;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            height: fit-content;
+        }
+
+        .control-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .control-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #5a4535;
+        }
+
+        select, input[type="range"] {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #c4b8a8;
+            border-radius: 4px;
+            background-color: #fff;
+            font-family: inherit;
+            color: #4a3728;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 6px;
+            background: #d4c7b8;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #8b5a2b;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .value-display {
+            text-align: right;
+            font-size: 0.9rem;
+            color: #6b5344;
+            margin-top: 0.25rem;
+        }
+
+        .visualization-container {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            padding: 1rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 500px;
+        }
+
+        svg {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .color-analysis {
+            background-color: #f0e9dc;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .color-title {
+            font-size: 1.4rem;
+            margin-bottom: 1rem;
+            color: #8b5a2b;
+            text-align: center;
+        }
+
+        .color-palette {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .color-item {
+            text-align: center;
+        }
+
+        .color-swatch {
+            height: 60px;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .color-hex {
+            font-size: 0.85rem;
+            color: #6b5344;
+            font-family: monospace;
+        }
+
+        .color-percent {
+            font-size: 0.8rem;
+            color: #8b7355;
+        }
+
+        .loading {
+            font-size: 1.2rem;
+            color: #8b5a2b;
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            
+            .title {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 class="title">何处是我朋友的家</h1>
+        <p class="subtitle">阿巴斯·基亚罗斯塔米 | 1987 | 伊朗乡村的温暖与纯真</p>
+        <p class="subtitle" style="margin-top: 0.5rem;">像素圆点艺术可视化 · 电影画面色彩分析</p>
+    </div>
+
+    <div class="container">
+        <div class="control-panel">
+            <div class="control-group">
+                <label class="control-label">选择画面</label>
+                <select id="imageSelector">
+                    <option value="何处是我朋友的家1.jpg">画面 1</option>
+                    <option value="何处是我朋友的家2.jpg">画面 2</option>
+                    <option value="何处是我朋友的家3.jpg">画面 3</option>
+                    <option value="何处是我朋友的家4.jpg">画面 4</option>
+                    <option value="何处是我朋友的家5.jpg">画面 5</option>
+                    <option value="何处是我朋友的家6.jpg">画面 6</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">圆点大小</label>
+                <input type="range" id="dotSize" min="1" max="8" value="3" step="0.5">
+                <div class="value-display" id="dotSizeValue">3px</div>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">点间距</label>
+                <input type="range" id="dotSpacing" min="2" max="12" value="5" step="1">
+                <div class="value-display" id="dotSpacingValue">5px</div>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">分辨率缩放</label>
+                <input type="range" id="resolution" min="0.2" max="1" value="0.5" step="0.1">
+                <div class="value-display" id="resolutionValue">50%</div>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">亮度影响大小</label>
+                <input type="range" id="brightnessInfluence" min="0" max="1" value="0.3" step="0.1">
+                <div class="value-display" id="brightnessInfluenceValue">30%</div>
+            </div>
+        </div>
+
+        <div class="visualization-container">
+            <div id="loading" class="loading">正在加载图片...</div>
+            <svg id="pixelArt"></svg>
+        </div>
+    </div>
+
+    <div class="color-analysis">
+        <h2 class="color-title">电影画面主色调分析</h2>
+        <div id="colorPalette" class="color-palette"></div>
+    </div>
+
+    <script>
+        // 配置参数
+        let config = {
+            dotSize: 3,
+            dotSpacing: 5,
+            resolution: 0.5,
+            brightnessInfluence: 0.3,
+            currentImage: '何处是我朋友的家1.jpg'
+        };
+
+        // DOM元素
+        const svg = d3.select('#pixelArt');
+        const loading = d3.select('#loading');
+        const colorPalette = d3.select('#colorPalette');
+        const imageSelector = document.getElementById('imageSelector');
+        const dotSizeSlider = document.getElementById('dotSize');
+        const dotSpacingSlider = document.getElementById('dotSpacing');
+        const resolutionSlider = document.getElementById('resolution');
+        const brightnessSlider = document.getElementById('brightnessInfluence');
+
+        // 初始化滑块显示
+        function updateValueDisplays() {
+            document.getElementById('dotSizeValue').textContent = `${config.dotSize}px`;
+            document.getElementById('dotSpacingValue').textContent = `${config.dotSpacing}px`;
+            document.getElementById('resolutionValue').textContent = `${Math.round(config.resolution * 100)}%`;
+            document.getElementById('brightnessInfluenceValue').textContent = `${Math.round(config.brightnessInfluence * 100)}%`;
+        }
+
+        // 加载并处理图片
+        function loadAndProcessImage(imagePath) {
+            loading.style('display', 'block');
+            svg.style('display', 'none');
+            colorPalette.html('');
+
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            
+            img.onload = function() {
+                // 创建canvas获取像素数据
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                // 按比例缩放图片
+                const scaledWidth = Math.round(img.width * config.resolution);
+                const scaledHeight = Math.round(img.height * config.resolution);
+                canvas.width = scaledWidth;
+                canvas.height = scaledHeight;
+                
+                ctx.drawImage(img, 0, 0, scaledWidth, scaledHeight);
+                const imageData = ctx.getImageData(0, 0, scaledWidth, scaledHeight);
+                const pixels = imageData.data;
+
+                // 绘制像素圆点
+                drawPixelDots(pixels, scaledWidth, scaledHeight);
+                
+                // 分析主色调
+                analyzeColors(pixels);
+                
+                loading.style('display', 'none');
+                svg.style('display', 'block');
+            };
+
+            // 修复2：优化错误提示
+            img.onerror = function() {
+                loading.text(`加载失败：找不到图片 ${imagePath}\n请确保图片与HTML文件在同一文件夹中`);
+                console.error('图片加载失败，尝试加载的路径是：', img.src);
+            };
+
+            // 修复3：终极路径修复 - 永远相对于当前HTML文件的位置
+            // 获取当前HTML文件的完整URL
+            const currentPageUrl = window.location.href;
+            // 提取HTML文件所在的文件夹路径（去掉最后一个/后面的文件名）
+            const currentFolderUrl = currentPageUrl.substring(0, currentPageUrl.lastIndexOf('/') + 1);
+            // 拼接成完整的图片URL
+            img.src = currentFolderUrl + imagePath;
+        }
+
+        // 绘制像素圆点
+        function drawPixelDots(pixels, width, height) {
+            // 清空SVG
+            svg.selectAll('*').remove();
+            
+            // 设置SVG尺寸
+            const svgWidth = width * config.dotSpacing;
+            const svgHeight = height * config.dotSpacing;
+            svg.attr('width', svgWidth).attr('height', svgHeight);
+
+            // 创建点数据
+            const dots = [];
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const index = (y * width + x) * 4;
+                    const r = pixels[index];
+                    const g = pixels[index + 1];
+                    const b = pixels[index + 2];
+                    const a = pixels[index + 3];
+                    
+                    if (a > 0) { // 跳过透明像素
+                        // 计算亮度 (ITU-R BT.709)
+                        const brightness = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+                        
+                        // 根据亮度调整圆点大小
+                        const size = config.dotSize * (1 + config.brightnessInfluence * (brightness - 0.5) * 2);
+                        
+                        dots.push({
+                            x: x * config.dotSpacing + config.dotSpacing / 2,
+                            y: y * config.dotSpacing + config.dotSpacing / 2,
+                            color: `rgb(${r},${g},${b})`,
+                            size: Math.max(0.5, size) // 确保最小尺寸
+                        });
+                    }
+                }
+            }
+
+            // 绘制所有圆点
+            svg.selectAll('circle')
+                .data(dots)
+                .enter()
+                .append('circle')
+                .attr('cx', d => d.x)
+                .attr('cy', d => d.y)
+                .attr('r', d => d.size)
+                .attr('fill', d => d.color)
+                .attr('opacity', 0.95);
+        }
+
+        // 分析主色调
+        function analyzeColors(pixels) {
+            const colorCount = {};
+            const totalPixels = pixels.length / 4;
+            
+            // 统计颜色出现次数（简化颜色以提高性能和可读性）
+            for (let i = 0; i < pixels.length; i += 4) {
+                const r = Math.round(pixels[i] / 16) * 16;
+                const g = Math.round(pixels[i + 1] / 16) * 16;
+                const b = Math.round(pixels[i + 2] / 16) * 16;
+                const color = `rgb(${r},${g},${b})`;
+                
+                colorCount[color] = (colorCount[color] || 0) + 1;
+            }
+
+            // 转换为数组并排序
+            const sortedColors = Object.entries(colorCount)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10); // 取前10种主色调
+
+            // 绘制调色板
+            colorPalette.selectAll('.color-item')
+                .data(sortedColors)
+                .enter()
+                .append('div')
+                .attr('class', 'color-item')
+                .html(d => `
+                    <div class="color-swatch" style="background-color: ${d[0]}"></div>
+                    <div class="color-hex">${rgbToHex(d[0])}</div>
+                    <div class="color-percent">${(d[1] / totalPixels * 100).toFixed(1)}%</div>
+                `);
+        }
+
+        // RGB转HEX
+        function rgbToHex(rgb) {
+            const result = rgb.match(/\d+/g);
+            return '#' + result.map(x => {
+                const hex = parseInt(x).toString(16);
+                return hex.length === 1 ? '0' + hex : hex;
+            }).join('').toUpperCase();
+        }
+
+        // 事件监听
+        imageSelector.addEventListener('change', (e) => {
+            config.currentImage = e.target.value;
+            loadAndProcessImage(config.currentImage);
+        });
+
+        dotSizeSlider.addEventListener('input', (e) => {
+            config.dotSize = parseFloat(e.target.value);
+            updateValueDisplays();
+            loadAndProcessImage(config.currentImage);
+        });
+
+        dotSpacingSlider.addEventListener('input', (e) => {
+            config.dotSpacing = parseInt(e.target.value);
+            updateValueDisplays();
+            loadAndProcessImage(config.currentImage);
+        });
+
+        resolutionSlider.addEventListener('input', (e) => {
+            config.resolution = parseFloat(e.target.value);
+            updateValueDisplays();
+            loadAndProcessImage(config.currentImage);
+        });
+
+        brightnessSlider.addEventListener('input', (e) => {
+            config.brightnessInfluence = parseFloat(e.target.value);
+            updateValueDisplays();
+            loadAndProcessImage(config.currentImage);
+        });
+
+        // 初始化
+        updateValueDisplays();
+        loadAndProcessImage(config.currentImage);
+    </script>
+</body>
+</html>
